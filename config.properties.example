@@ -1,0 +1,12 @@
+# NFS File Distribution Configuration
+
+# NFSマウントされたソースディレクトリのパス
+source.directory=/mnt/nfs/source
+
+# 分散先ディレクトリのリスト（カンマ区切り）
+destination.directories=/mnt/dest1,/mnt/dest2,/mnt/dest3
+
+# 分散戦略
+# - roundrobin: ラウンドロビン方式（順番に分散）
+# - hash: ハッシュベース方式（ファイル名のハッシュ値で分散）
+distribution.strategy=roundrobin
