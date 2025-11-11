@@ -1,0 +1,8 @@
+# マスターサーバー設定ファイル
+
+# XMLファイルが格納されているディレクトリ（NFSマウント等）
+source.directory=/mnt/nfs/xml-files
+
+# ワーカーサーバーのURLリスト（カンマ区切り）
+# 注意: マスターサーバー自身も処理に参加します
+worker.urls=http://server2:8080,http://server3:8080

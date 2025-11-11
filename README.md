@@ -1,7 +1,9 @@
 # NFS File Distributor
 
 NFSで共有されているディレクトリからファイルを読み込んで、複数の宛先に分散するJavaプログラムです。
-書き込み側（FileDistributor）と読み込み側（FileReader）の両方を提供します。
+以下の機能を提供します：
+- ファイル分散処理（FileDistributor / FileReader）
+- **複数台サーバーでのXML分散処理（MasterCoordinator / WorkerServer）**
 
 ## 機能
 
@@ -229,6 +231,299 @@ case "custom":
     strategy = new CustomDistributionStrategy();
     break;
 ```
+
+---
+
+## 複数台サーバーでのXML分散処理
+
+### 概要
+
+複数台のサーバー間でXMLファイルの処理を分散実行する機能です。
+マスターサーバー（サーバー1）から処理を起動し、ワーカーサーバー（サーバー2、3など）にタスクを配分して並列処理を行います。
+すべての処理が完了すると、マスターサーバーで結果を集約して確認できます。
+
+### アーキテクチャ
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  サーバー1 (マスター)                                      │
+│  ┌──────────────────────────────────────────────┐       │
+│  │  MasterCoordinator                            │       │
+│  │  - XMLファイルのスキャン                        │       │
+│  │  - タスクの配分                                 │       │
+│  │  - 結果の集約・レポート                          │       │
+│  │  - ローカル処理も実行                            │       │
+│  └──────────────────────────────────────────────┘       │
+└─────────────────────────────────────────────────────────┘
+           │                │
+           │ HTTP/REST      │ HTTP/REST
+           ▼                ▼
+    ┌─────────┐      ┌─────────┐
+    │サーバー2 │      │サーバー3 │
+    │  (ワーカー)│      │  (ワーカー)│
+    └─────────┘      └─────────┘
+     WorkerServer     WorkerServer
+```
+
+### コンポーネント
+
+#### MasterCoordinator (マスターサーバー)
+- 指定されたディレクトリからXMLファイルをスキャン
+- 各XMLファイルを処理タスクとして生成
+- ラウンドロビン方式でワーカーサーバーにタスクを配分
+- マスター自身も処理に参加（効率的なリソース活用）
+- すべてのタスクの完了を待機
+- 処理結果を集約してレポート出力
+
+#### WorkerServer (ワーカーサーバー)
+- REST APIエンドポイントを提供
+- マスターからタスクを受信
+- XMLファイルの処理を実行
+- 処理結果をマスターに返却
+
+#### XMLProcessor
+- 実際のXML処理ロジック
+- XMLファイルのパース
+- 要素数のカウント
+- ビジネスロジックの実行
+
+### 設定方法
+
+#### マスターサーバーの設定
+
+`config-master.properties`ファイルを作成:
+
+```properties
+# XMLファイルが格納されているディレクトリ
+source.directory=/mnt/nfs/xml-files
+
+# ワーカーサーバーのURLリスト（カンマ区切り）
+worker.urls=http://server2:8080,http://server3:8080
+```
+
+サンプルファイルをコピーして編集:
+```bash
+cp config-master.properties.example config-master.properties
+# config-master.propertiesを環境に合わせて編集
+```
+
+#### ワーカーサーバーの設定
+
+各ワーカーサーバーで`config-worker.properties`ファイルを作成:
+
+```properties
+# ワーカーサーバーのポート番号
+worker.port=8080
+```
+
+サンプルファイルをコピーして編集:
+```bash
+cp config-worker.properties.example config-worker.properties
+# config-worker.propertiesを環境に合わせて編集
+```
+
+### 実行方法
+
+#### 1. ビルド
+
+まず、すべてのサーバーでプロジェクトをビルドします:
+
+```bash
+mvn clean package
+```
+
+#### 2. ワーカーサーバーの起動
+
+サーバー2とサーバー3で、それぞれワーカーサーバーを起動します:
+
+```bash
+# サーバー2で実行
+java -cp target/nfs-file-distributor-1.0.0-jar-with-dependencies.jar com.example.nfs.WorkerServer
+
+# サーバー3で実行
+java -cp target/nfs-file-distributor-1.0.0-jar-with-dependencies.jar com.example.nfs.WorkerServer
+```
+
+ワーカーサーバーが起動すると、以下のようなログが表示されます:
+```
+情報: ワーカーサーバーを起動しました: ポート 8080
+情報: ワーカーサーバーが稼働中です。終了するには Ctrl+C を押してください。
+```
+
+#### 3. マスターサーバーから処理を実行
+
+サーバー1（マスター）で分散処理を起動します:
+
+```bash
+# サーバー1で実行
+java -cp target/nfs-file-distributor-1.0.0-jar-with-dependencies.jar com.example.nfs.MasterCoordinator
+```
+
+処理が完了すると、以下のようなレポートが表示されます:
+
+```
+情報: ========================================
+情報: 分散処理が完了しました
+情報: ========================================
+情報: 処理ファイル数: 100
+情報: 成功: 98
+情報: 失敗: 2
+情報: 合計XML要素数: 15420
+情報: 合計処理時間: 3540 ms
+情報: 全体経過時間: 1250 ms
+情報: 使用ワーカー数: 2 (リモート) + 1 (ローカル)
+情報: ========================================
+```
+
+### 使用例
+
+#### 例1: 3台のサーバーでXMLファイルを分散処理
+
+**前提条件:**
+- サーバー1、2、3が互いに通信可能
+- `/mnt/nfs/xml-files`ディレクトリがNFSでマウント済み
+- 100個のXMLファイルが格納されている
+
+**設定 (サーバー1の config-master.properties):**
+```properties
+source.directory=/mnt/nfs/xml-files
+worker.urls=http://server2:8080,http://server3:8080
+```
+
+**実行フロー:**
+1. サーバー2、3でワーカーを起動
+2. サーバー1からマスターコーディネーターを起動
+3. 100個のXMLファイルがラウンドロビンで配分:
+   - ファイル1 → サーバー1（ローカル処理）
+   - ファイル2 → サーバー2
+   - ファイル3 → サーバー3
+   - ファイル4 → サーバー1
+   - ...
+4. すべての処理完了後、サーバー1で結果を確認
+
+#### 例2: テスト実行（サンプルXMLファイルを使用）
+
+プロジェクトにはサンプルXMLファイルが含まれています:
+
+```bash
+# テスト用設定
+cat > config-master.properties <<EOF
+source.directory=./sample-xml-files
+worker.urls=http://localhost:8081,http://localhost:8082
+EOF
+
+# ターミナル1: ワーカー1を起動
+cat > config-worker.properties <<EOF
+worker.port=8081
+EOF
+java -cp target/nfs-file-distributor-1.0.0-jar-with-dependencies.jar com.example.nfs.WorkerServer
+
+# ターミナル2: ワーカー2を起動
+cat > config-worker.properties <<EOF
+worker.port=8082
+EOF
+java -cp target/nfs-file-distributor-1.0.0-jar-with-dependencies.jar com.example.nfs.WorkerServer
+
+# ターミナル3: マスターを実行
+java -cp target/nfs-file-distributor-1.0.0-jar-with-dependencies.jar com.example.nfs.MasterCoordinator
+```
+
+### プロジェクト構造（分散処理関連）
+
+```
+.
+├── src/main/java/com/example/nfs/
+│   ├── MasterCoordinator.java        # マスターサーバー（タスク配分・結果集約）
+│   ├── WorkerServer.java             # ワーカーサーバー（REST API）
+│   ├── XMLProcessor.java             # XML処理ロジック
+│   ├── ProcessingTask.java           # タスク定義
+│   └── ProcessingResult.java         # 処理結果
+├── config-master.properties.example   # マスター設定サンプル
+├── config-worker.properties.example   # ワーカー設定サンプル
+└── sample-xml-files/                  # サンプルXMLファイル
+    ├── sample1.xml
+    ├── sample2.xml
+    └── sample3.xml
+```
+
+### カスタマイズ
+
+#### XML処理ロジックのカスタマイズ
+
+`XMLProcessor.java`の`processXMLFile`メソッドに独自の処理ロジックを追加できます:
+
+```java
+public ProcessingResult processXMLFile(ProcessingTask task) {
+    // ... 既存のコード ...
+
+    // カスタム処理の例:
+    // - 特定の要素を抽出
+    NodeList items = document.getElementsByTagName("item");
+
+    // - データの変換
+    // - 検証ルールの適用
+    // - データベースへの保存
+
+    // ... 結果を返す ...
+}
+```
+
+### トラブルシューティング
+
+#### ワーカーサーバーに接続できない
+
+- ファイアウォール設定を確認
+- ワーカーサーバーが起動しているか確認
+- URLとポート番号が正しいか確認
+
+```bash
+# ワーカーのヘルスチェック
+curl http://server2:8080/health
+# 期待される応答: {"status": "ok"}
+```
+
+#### XMLファイルが見つからない
+
+- `source.directory`のパスが正しいか確認
+- NFSマウントが正常か確認
+- ファイルの読み込み権限があるか確認
+
+```bash
+# ディレクトリの確認
+ls -la /mnt/nfs/xml-files
+```
+
+### パフォーマンスチューニング
+
+#### スレッドプールのサイズ調整
+
+デフォルトではCPUコア数に応じたスレッドプールを使用します。
+調整する場合は、以下のコードを変更:
+
+```java
+// MasterCoordinator.java または WorkerServer.java
+this.executorService = Executors.newFixedThreadPool(
+    Runtime.getRuntime().availableProcessors() * 2  // 2倍に増やす例
+);
+```
+
+#### タイムアウトの調整
+
+HTTP通信のタイムアウトを調整:
+
+```java
+// MasterCoordinator.java
+this.httpClient = HttpClient.newBuilder()
+    .connectTimeout(Duration.ofSeconds(30))  // 接続タイムアウト
+    .build();
+
+// リクエストタイムアウト
+HttpRequest request = HttpRequest.newBuilder()
+    .timeout(Duration.ofMinutes(10))  // リクエストタイムアウト
+    .build();
+```
+
+---
 
 ## ライセンス
 

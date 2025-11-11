@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<employees>
+    <employee id="001">
+        <name>John Doe</name>
+        <department>Engineering</department>
+        <position>Senior Developer</position>
+        <salary>100000</salary>
+    </employee>
+    <employee id="002">
+        <name>Jane Smith</name>
+        <department>Marketing</department>
+        <position>Manager</position>
+        <salary>90000</salary>
+    </employee>
+    <employee id="003">
+        <name>Bob Johnson</name>
+        <department>Sales</department>
+        <position>Representative</position>
+        <salary>70000</salary>
+    </employee>
+</employees>
