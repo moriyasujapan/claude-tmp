@@ -1,0 +1,10 @@
+# NFS File Reader Configuration
+
+# 読み込み元ディレクトリのリスト（カンマ区切り）
+# 分散先のディレクトリを指定（FileDistributorで分散したディレクトリ）
+source.directories=/mnt/dest1,/mnt/dest2,/mnt/dest3
+
+# ファイル内容の検証を行うかどうか
+# true: ファイルの全内容を読み込んで検証
+# false: ファイルをオープン・クローズのみ（高速）
+validate.files=false

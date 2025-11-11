@@ -32,6 +32,7 @@ hs_err_pid*
 
 # 設定ファイル（実際の設定は含めない）
 config.properties
+config-reader.properties
 
 # OS
 .DS_Store
