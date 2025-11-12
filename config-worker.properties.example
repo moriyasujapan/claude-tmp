@@ -2,3 +2,47 @@
 
 # ワーカーサーバーのポート番号
 worker.port=8080
+
+# ========================================
+# データベース接続設定（HikariCP）
+# ========================================
+
+# データベース接続の有効/無効
+db.enabled=true
+
+# JDBC接続URL
+# PostgreSQLの例:
+db.url=jdbc:postgresql://localhost:5432/xmlprocessing
+# MySQLの例:
+# db.url=jdbc:mysql://localhost:3306/xmlprocessing?useSSL=false&serverTimezone=UTC
+
+# データベースユーザー名
+db.username=your_username
+
+# データベースパスワード
+db.password=your_password
+
+# ========================================
+# HikariCP コネクションプール設定
+# ========================================
+
+# 最大プールサイズ（デフォルト: 10）
+db.pool.maxPoolSize=10
+
+# 最小アイドル接続数（デフォルト: 2）
+db.pool.minimumIdle=2
+
+# 接続タイムアウト（ミリ秒、デフォルト: 30000 = 30秒）
+db.pool.connectionTimeout=30000
+
+# アイドルタイムアウト（ミリ秒、デフォルト: 600000 = 10分）
+db.pool.idleTimeout=600000
+
+# 最大ライフタイム（ミリ秒、デフォルト: 1800000 = 30分）
+db.pool.maxLifetime=1800000
+
+# 接続テストクエリ
+# PostgreSQL:
+db.pool.connectionTestQuery=SELECT 1
+# MySQL:
+# db.pool.connectionTestQuery=SELECT 1

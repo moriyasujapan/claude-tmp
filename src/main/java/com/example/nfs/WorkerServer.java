@@ -27,11 +27,13 @@ public class WorkerServer {
 
     private final int port;
     private final XMLProcessor processor;
+    private final DatabaseConnectionPool connectionPool;
     private HttpServer server;
 
-    public WorkerServer(int port) {
+    public WorkerServer(int port, XMLProcessor processor, DatabaseConnectionPool connectionPool) {
         this.port = port;
-        this.processor = new XMLProcessor();
+        this.processor = processor;
+        this.connectionPool = connectionPool;
     }
 
     /**
@@ -59,6 +61,9 @@ public class WorkerServer {
         if (server != null) {
             server.stop(0);
             logger.info("ワーカーサーバーを停止しました");
+        }
+        if (connectionPool != null) {
+            connectionPool.shutdown();
         }
     }
 
@@ -146,8 +151,27 @@ public class WorkerServer {
             // ポート番号の取得
             int port = Integer.parseInt(properties.getProperty("worker.port", "8080"));
 
+            // データベース接続の有効/無効
+            boolean enableDatabase = Boolean.parseBoolean(
+                properties.getProperty("db.enabled", "false"));
+
+            DatabaseConnectionPool connectionPool = null;
+            XMLProcessor processor;
+
+            if (enableDatabase) {
+                // データベース接続を初期化
+                logger.info("データベース接続を初期化します");
+                connectionPool = DatabaseConnectionPool.getInstance(properties);
+                processor = new XMLProcessor(connectionPool);
+                logger.info("データベース接続を有効にしました: " + properties.getProperty("db.url"));
+            } else {
+                // データベース接続なし
+                processor = new XMLProcessor();
+                logger.info("データベース接続は無効です");
+            }
+
             // ワーカーサーバーの起動
-            WorkerServer worker = new WorkerServer(port);
+            WorkerServer worker = new WorkerServer(port, processor, connectionPool);
             worker.start();
 
             // シャットダウンフック

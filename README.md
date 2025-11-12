@@ -436,15 +436,122 @@ java -cp target/nfs-file-distributor-1.0.0-jar-with-dependencies.jar com.example
 │   ├── MasterCoordinator.java        # マスターサーバー（タスク配分・結果集約）
 │   ├── WorkerServer.java             # ワーカーサーバー（REST API）
 │   ├── XMLProcessor.java             # XML処理ロジック
+│   ├── DatabaseConnectionPool.java   # HikariCPコネクションプール
 │   ├── ProcessingTask.java           # タスク定義
 │   └── ProcessingResult.java         # 処理結果
 ├── config-master.properties.example   # マスター設定サンプル
 ├── config-worker.properties.example   # ワーカー設定サンプル
+├── db-schema/                         # データベーススキーマ
+│   ├── schema-postgresql.sql         # PostgreSQL用DDL
+│   └── schema-mysql.sql              # MySQL用DDL
 └── sample-xml-files/                  # サンプルXMLファイル
     ├── sample1.xml
     ├── sample2.xml
     └── sample3.xml
 ```
+
+### データベース接続（HikariCP）
+
+XMLProcessorは、HikariCPを使用したデータベース接続をサポートしています。
+処理したXMLデータをデータベースに保存することができます。
+
+#### データベースのセットアップ
+
+**1. データベースを作成**
+
+PostgreSQLの例:
+```sql
+CREATE DATABASE xmlprocessing;
+```
+
+MySQLの例:
+```sql
+CREATE DATABASE xmlprocessing CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+```
+
+**2. テーブルを作成**
+
+提供されているDDLスクリプトを使用してテーブルを作成します:
+
+PostgreSQLの場合:
+```bash
+psql -U your_username -d xmlprocessing -f db-schema/schema-postgresql.sql
+```
+
+MySQLの場合:
+```bash
+mysql -u your_username -p xmlprocessing < db-schema/schema-mysql.sql
+```
+
+**3. ワーカー設定ファイルを編集**
+
+`config-worker.properties`にデータベース接続情報を追加:
+
+```properties
+# データベース接続を有効化
+db.enabled=true
+
+# JDBC接続URL（PostgreSQLの例）
+db.url=jdbc:postgresql://localhost:5432/xmlprocessing
+
+# データベース認証情報
+db.username=your_username
+db.password=your_password
+
+# HikariCP設定
+db.pool.maxPoolSize=10
+db.pool.minimumIdle=2
+```
+
+MySQLを使用する場合:
+```properties
+db.url=jdbc:mysql://localhost:3306/xmlprocessing?useSSL=false&serverTimezone=UTC
+```
+
+#### データベーステーブル
+
+DDLスクリプトには以下のテーブルが含まれています:
+
+**xml_processing_history**
+- XML処理履歴を記録
+- task_id, file_name, file_path, element_count, root_tag_name, processed_at
+
+**xml_books** (サンプル)
+- 書籍XMLから抽出したデータを保存
+- task_id, book_id, author, title, genre, price
+
+**xml_employees** (サンプル)
+- 社員XMLから抽出したデータを保存
+- task_id, employee_id, name, department, position, salary
+
+**xml_products** (サンプル)
+- 商品XMLから抽出したデータを保存
+- task_id, product_name, category, brand, price, currency, stock
+
+#### データベース接続の確認
+
+処理完了後、データを確認:
+
+```sql
+-- 処理履歴を確認
+SELECT * FROM xml_processing_history ORDER BY processed_at DESC LIMIT 10;
+
+-- サマリービューを確認
+SELECT * FROM v_processing_summary;
+
+-- 書籍データを確認（サンプルXMLを処理した場合）
+SELECT * FROM xml_books;
+```
+
+#### データベース接続の無効化
+
+データベースを使用しない場合:
+
+```properties
+db.enabled=false
+```
+
+これにより、XMLProcessorはDB接続なしで動作します。
 
 ### カスタマイズ
 
