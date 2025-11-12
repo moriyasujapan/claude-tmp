@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<products>
+    <product category="electronics">
+        <name>Laptop</name>
+        <brand>TechBrand</brand>
+        <price currency="USD">1200.00</price>
+        <stock>45</stock>
+    </product>
+    <product category="electronics">
+        <name>Smartphone</name>
+        <brand>PhoneCorp</brand>
+        <price currency="USD">800.00</price>
+        <stock>120</stock>
+    </product>
+    <product category="furniture">
+        <name>Office Chair</name>
+        <brand>ComfortPlus</brand>
+        <price currency="USD">350.00</price>
+        <stock>30</stock>
+    </product>
+</products>
